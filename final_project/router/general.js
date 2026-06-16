@@ -23,7 +23,7 @@ public_users.post("/register", (req,res) => {
   return res.json(404).json({message:"Unable to register user."})
 });
 
-// Get the book list available in the shop
+
 // Get the book list available in the shop
 public_users.get('/', function (req, res) {
   const fetchAllBooks = () => {
@@ -87,8 +87,6 @@ public_users.get('/isbn/:isbn', async function (req, res) {
 });
   
 // Get book details based on author
-const axios = require('axios');
-
 public_users.get('/author/:author', async function (req, res) {
   const targetAuthor = req.params.author;
 
