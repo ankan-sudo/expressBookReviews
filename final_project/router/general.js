@@ -24,125 +24,190 @@ public_users.post("/register", (req,res) => {
 });
 
 // Get the book list available in the shop
-public_users.get('/',async function (req, res) {
-  //Write your code here
-  try {
-    const getBooks = () => {
-      return new Promise((resolve) => {
-        resolve(books)
-      })
-    }
+// Get the book list available in the shop
+public_users.get('/', function (req, res) {
+  const fetchAllBooks = () => {
+    return new Promise((resolve, reject) => {
+      if (books && Object.keys(books).length > 0) {
+        resolve(books);
+      } else {
+        reject(new Error("Database Error: Book inventory is currently empty or unavailable."));
+      }
+    });
+  };
 
-    const availableBooks = await getBooks();
-
-    return res.status(200).send(JSON.stringify(availableBooks, null, 4));
-  } catch (error) {
-    return res.status(500).json({message:"Error retrieving book list", error: error.message})
-  }
+  fetchAllBooks()
+    .then((bookList) => {
+      return res.status(200).json(bookList);
+    })
+    .catch((error) => {
+      return res.status(500).json({
+        success: false,
+        message: error.message,
+        timestamp: new Date().toISOString()
+      });
+    });
 });
 
+
 // Get book details based on ISBN
-public_users.get('/isbn/:isbn',async function (req, res) {
-  //Write your code here
-  const isbn = req.params.isbn;
-  
-  try {
-    const getBooksbyISBN = () => {
-    return new Promise((resolve,reject) => {
-      if(books[isbn]){
-        resolve(books[isbn])
-    }
-    else{
-        reject(new Error("Book not found with this ISBN"))
-      }
-    })
+public_users.get('/isbn/:isbn', async function (req, res) {
+  const targetIsbn = req.params.isbn;
+
+  // Input Validation
+  if (!targetIsbn || targetIsbn.trim() === "") {
+    return res.status(400).json({ 
+      message: "Bad Request: The 'isbn' parameter is missing or empty." 
+    });
   }
 
-  const bookDetails = await getBooksbyISBN();
-  return res.status(200).json(bookDetails) 
+  try {
+    const fetchBookByIsbn = () => {
+      return new Promise((resolve, reject) => {
+        const book = books[targetIsbn];
+        if (book) {
+          resolve(book);
+        } else {
+          reject(new Error(`Resource Not Found: No book matches the provided ISBN code '${targetIsbn}'.`));
+        }
+      });
+    };
+
+    const bookDetails = await fetchBookByIsbn();
+    return res.status(200).json(bookDetails);
+
   } catch (error) {
-    return res.status(404).json({message: error.message})
+    return res.status(404).json({
+      success: false,
+      message: error.message,
+      requestedIsbn: targetIsbn,
+      timestamp: new Date().toISOString()
+    });
   }
-  
- });
+});
   
 // Get book details based on author
-public_users.get('/author/:author',async function (req, res) {
-  //Write your code here
+const axios = require('axios');
+
+public_users.get('/author/:author', async function (req, res) {
   const targetAuthor = req.params.author;
 
-  try {
-    const getBooksByAuthor = () => {
-      return new Promise((resolve,reject) => {
-          const bookKeys = Object.keys(books);
-
-          const filteredBooks = bookKeys.map((key) => books[key]).filter((book) => {
-            return book.author.toLowerCase() === targetAuthor.toLowerCase()
-          })
-
-          if(filteredBooks.length > 0)
-          {
-            resolve(filteredBooks)
-          }
-          else
-          {
-            reject(new Error("No book found by this author"))
-          }
-      })
-    }
-
-    const getBookDetails = await getBooksByAuthor();
-    return res.status(200).json(getBookDetails);
-  } 
-  catch (error) {
-    return res.status(404).json({message: error.message})
+  // 1. Input Validation: Check if the user passed an empty or invalid author parameter
+  if (!targetAuthor || targetAuthor.trim() === "") {
+    return res.status(400).json({ 
+      message: "Bad Request: The 'author' parameter is missing or empty." 
+    });
   }
 
+  try {
+    const fetchBooksByAuthor = () => {
+      return new Promise((resolve, reject) => {
+        const bookKeys = Object.keys(books);
+        
+        const filteredBooks = bookKeys
+          .map((key) => books[key])
+          .filter((book) => book.author.toLowerCase() === targetAuthor.toLowerCase());
 
+        if (filteredBooks.length > 0) {
+          resolve(filteredBooks);
+        } else {
+          // 2. Descriptive Error: Name the exact resource that couldn't be found
+          reject(new Error(`No books found in our database matching the author: '${targetAuthor}'`));
+        }
+      });
+    };
+
+    const matchingBooks = await fetchBooksByAuthor();
+    return res.status(200).json(matchingBooks);
+
+  } catch (error) {
+    // 3. Dynamic Debugging Response: Pass the actual error message dynamically
+    return res.status(404).json({ 
+      success: false,
+      message: error.message,
+      timestamp: new Date().toISOString(),
+      requestedAuthor: targetAuthor
+    });
+  }
 });
 
 // Get all books based on title
 public_users.get('/title/:title', async function (req, res) {
-  //Write your code here
   const targetTitle = req.params.title;
 
+  // Input Validation
+  if (!targetTitle || targetTitle.trim() === "") {
+    return res.status(400).json({ 
+      message: "Bad Request: The 'title' parameter is missing or empty." 
+    });
+  }
+
   try {
-   const getBooksByTitle = () => {
-    return new Promise((resolve, reject) => {
-      const bookKeys = Object.keys(books)
+    const fetchBooksByTitle = () => {
+      return new Promise((resolve, reject) => {
+        const bookKeys = Object.keys(books);
+        
+        const filteredBooks = bookKeys
+          .map((key) => books[key])
+          .filter((book) => book.title.toLowerCase() === targetTitle.toLowerCase());
 
-      const filteredBooks = bookKeys.map((key) => books[key]).filter((book) => {
-        return book.title.toLowerCase() === targetTitle.toLowerCase()
-  })
+        if (filteredBooks.length > 0) {
+          resolve(filteredBooks);
+        } else {
+          reject(new Error(`Resource Not Found: No books found matching the title '${targetTitle}'.`));
+        }
+      });
+    };
 
-      if(filteredBooks.length>0){
-        resolve(filteredBooks)
-      }
-      else{
-        reject(new Error("No book found by this title"))
-      }
-    })
-  }
-  
-  const getBookDetails = await getBooksByTitle();
-  return res.status(200).json(getBookDetails)
+    const matchingBooks = await fetchBooksByTitle();
+    return res.status(200).json(matchingBooks);
+
   } catch (error) {
-    return res.status(404).json({message: error.message})
+    return res.status(404).json({
+      success: false,
+      message: error.message,
+      requestedTitle: targetTitle,
+      timestamp: new Date().toISOString()
+    });
   }
-  
-
 });
 
 //  Get book review
-public_users.get('/review/:isbn',function (req, res) {
-  //Write your code here
-  let isbn = req.params.isbn;
+public_users.get('/review/:isbn', function (req, res) {
+  const targetIsbn = req.params.isbn;
 
-  if(books[isbn]){
-    return res.status(200).json(books[isbn].reviews)
+  // 1. Input Validation: Checking if the user passed an empty or invalid ISBN parameter
+  if (!targetIsbn || targetIsbn.trim() === "") {
+    return res.status(400).json({ 
+      success: false,
+      message: "Bad Request: The 'isbn' parameter is missing or empty in the request path." 
+    });
   }
-  else{
-    return res.status(404).json({message:"No book review found by this isbn"})
+
+  // 2. Resource Lookup
+  if (books[targetIsbn]) {
+    const bookReviews = books[targetIsbn].reviews;
+    
+    // Checking if the book exists but simply doesn't have any reviews yet
+    if (Object.keys(bookReviews).length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: `The book with ISBN '${targetIsbn}' ('${books[targetIsbn].title}') was found, but it has no customer reviews yet.`,
+        reviews: {}
+      });
+    }
+
+    // Success case: Book exists and has active reviews
+    return res.status(200).json(bookReviews);
+  } 
+  else {
+    // 3. Detailed Error Handling for Debugging and User Experience
+    return res.status(404).json({
+      success: false,
+      message: `Resource Not Found: No book record matches the provided ISBN '${targetIsbn}'. Unable to fetch reviews.`,
+      requestedIsbn: targetIsbn,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
